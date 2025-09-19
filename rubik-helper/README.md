@@ -2,9 +2,11 @@
 rubik-helper/
 ├─ src/
 │  ├─ components/
-│  │   ├─ CameraCapture.tsx     # Componente para capturar el cubo con react-webcam
+│  │   ├─ CameraCapture.tsx     # Componente para capturar el cubo con 
+│  │   ├─ CameraScanner.tsx     #
 │  │   ├─ CubeRenderer.tsx      # Visualización 3D con three.js
 │  │   ├─ SolutionSteps.tsx     # Muestra los pasos para resolver el cubo
+│  │   ├─ SolutionSteps.tsx     #
 │  ├─ store/
 │  │   ├─ cubeStore.ts          # Estado global (zustand)
 │  ├─ utils/
@@ -15,6 +17,9 @@ rubik-helper/
 
 # Librerias instladas 
 npm install cubejs zustand three react-webcam
+
+
+Con fast-average-color y colorthief ya no dependes de opencv.js y puedes detectar colores de cada sticker del cubo de forma mucho más ligera.
 
 ```js
 // eslint.config.js

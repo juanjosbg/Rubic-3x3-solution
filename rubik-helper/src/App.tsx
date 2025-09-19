@@ -1,35 +1,46 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// src/App.tsx
+import { useState } from "react";
+import CameraScanner from "@components/CameraScanner";
+import type { CubeState } from "@components/CameraScanner";
+import CubeRenderer from "@components/CubeRenderer";
+import FacePreview from "./components/FacePreview";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [cubeState, setCubeState] = useState<CubeState | null>(null);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="w-screen h-screen flex flex-col bg-gray-100">
+      {/* Cámara arriba */}
+      <div className="flex-1 flex justify-center items-center bg-black relative">
+        {!cubeState ? (
+          <CameraScanner onComplete={setCubeState} />
+        ) : (
+          <div className="text-white text-lg font-semibold">
+            ✅ Cubo escaneado
+          </div>
+        )}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+
+      {/* Sección de abajo con cubo y vistas de caras */}
+      <div className="flex-1 grid grid-cols-4 gap-4 p-4 bg-white">
+        <div className="bg-gray-200 flex justify-center items-center rounded-lg shadow">
+          {cubeState ? (
+            <CubeRenderer cubeState={cubeState} />
+          ) : (
+            "Cubo no escaneado"
+          )}
+        </div>
+
+        {cubeState && (
+          <>
+            <FacePreview face="U" colors={cubeState.U} />
+            <FacePreview face="F" colors={cubeState.F} />
+            <FacePreview face="R" colors={cubeState.R} />
+          </>
+        )}
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
