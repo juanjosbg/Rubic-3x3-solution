@@ -64,9 +64,7 @@ export default function CameraScanner({
       canvasRef.current.width,
       canvasRef.current.height
     );
-
-    // 👉 Aquí deberías detectar colores en los stickers
-    // Por ahora devolvemos todo blanco
+    // Aquí podríamos procesar la imagen para detectar colores
     const faceData = defaultFace;
 
     setFaces((prev) => {
@@ -76,7 +74,6 @@ export default function CameraScanner({
       setCurrentFace(nextFace);
 
       if (Object.keys(newFaces).length === 6) {
-        // ✅ Ya tenemos las 6 caras
         onComplete(newFaces as CubeState);
         stopCamera();
       }
