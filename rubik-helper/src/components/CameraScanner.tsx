@@ -1,141 +1,93 @@
 // src/components/CameraScanner.tsx
-import { useEffect, useRef, useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import Webcam from "react-webcam";
+import { sampleFaceHex, mapHexToCubeColor } from "../utils/colorDetection";
+import { useCubeStore } from "../store/cubeStore";
 
-type Color = "R" | "G" | "B" | "Y" | "O" | "W"; // colores simplificados
-export type CubeState = {
-  U: Color[][];
-  D: Color[][];
-  F: Color[][];
-  B: Color[][];
-  L: Color[][];
-  R: Color[][];
+const order = ["U","R","F","D","L","B"] as const;
+type Face = typeof order[number];
+
+const tips: Record<Face,string> = {
+  U: "Coloca la cara U al frente dentro del marco.",
+  R: "Gira el cubo 90° hacia la derecha para mostrar R.",
+  F: "Desde R, gira 90° hacia ti para F.",
+  D: "Voltea el cubo para mostrar D.",
+  L: "Gira 90° a la izquierda para L.",
+  B: "Gira 180° desde F para B.",
 };
 
-const defaultFace: Color[][] = [
-  ["W", "W", "W"],
-  ["W", "W", "W"],
-  ["W", "W", "W"],
-];
+export default function CameraScanner() {
+  const webcamRef = useRef<Webcam>(null);
+  const [idx, setIdx] = useState(0);
+  const [isAligned, setIsAligned] = useState(false);
+  const setFace = useCubeStore(s=>s.setFace);
 
-export default function CameraScanner({
-  onComplete,
-}: {
-  onComplete: (cube: CubeState) => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [faces, setFaces] = useState<Partial<CubeState>>({});
-  const [currentFace, setCurrentFace] = useState<keyof CubeState | null>(null);
-
-  const faceOrder: (keyof CubeState)[] = ["U", "D", "F", "B", "L", "R"];
-
-  // === Activar cámara ===
-  const startCamera = async (
-    facingMode: "user" | "environment" = "environment"
-  ) => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
-      setCurrentFace("U");
-    } catch (err) {
-      console.error("Error al acceder a la cámara:", err);
-    }
-  };
-
-  // === Capturar cara ===
-  const captureFace = () => {
-    if (!canvasRef.current || !videoRef.current || !currentFace) return;
-
-    const ctx = canvasRef.current.getContext("2d");
-    if (!ctx) return;
-
-    // Dibujar frame actual del video en canvas
-    ctx.drawImage(
-      videoRef.current,
-      0,
-      0,
-      canvasRef.current.width,
-      canvasRef.current.height
-    );
-    // Aquí podríamos procesar la imagen para detectar colores
-    const faceData = defaultFace;
-
-    setFaces((prev) => {
-      const newFaces = { ...prev, [currentFace]: faceData };
-      const nextFace = faceOrder[Object.keys(newFaces).length] || null;
-
-      setCurrentFace(nextFace);
-
-      if (Object.keys(newFaces).length === 6) {
-        onComplete(newFaces as CubeState);
-        stopCamera();
-      }
-
-      return newFaces;
-    });
-  };
-
-  // === Apagar cámara ===
-  const stopCamera = () => {
-    stream?.getTracks().forEach((track) => track.stop());
-    setStream(null);
-    setCurrentFace(null);
+  const screenshotToCanvas = async () => {
+    const shot = webcamRef.current?.getScreenshot();
+    if (!shot) return null;
+    const img = new Image();
+    img.src = shot;
+    await new Promise<void>(res => (img.onload = () => res()));
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width; canvas.height = img.height;
+    const ctx = canvas.getContext("2d"); if (!ctx) return null;
+    ctx.drawImage(img, 0, 0);
+    return { canvas, img };
   };
 
   useEffect(() => {
-    return () => stopCamera();
+    const it = setInterval(async () => {
+      const ctx = await screenshotToCanvas();
+      if (!ctx) return;
+      const { canvas, img } = ctx;
+      const region = { x: img.width/3, y: img.height/3, width: img.width/3, height: img.height/3 };
+      const res = sampleFaceHex(canvas, region);
+      setIsAligned(res.present);
+    }, 350);
+    return () => clearInterval(it);
   }, []);
 
+  const capture = async () => {
+    const ctx = await screenshotToCanvas();
+    if (!ctx) return;
+    const { canvas, img } = ctx;
+    const region = { x: img.width/3, y: img.height/3, width: img.width/3, height: img.height/3 };
+    const res = sampleFaceHex(canvas, region);
+    if (!res.present) return alert("❌ Alinea el cubo dentro del marco y vuelve a intentar.");
+
+    // HEX -> nombres canónicos
+    const faceColors = res.cubeHex.map(row => row.map(hex => mapHexToCubeColor(hex)));
+    setFace(order[idx] as Face, faceColors);
+    if (idx < order.length - 1) setIdx(i => i + 1);
+  };
+
+  const current = order[idx];
+  const next = order[idx + 1];
+
   return (
-    <div className="flex flex-col items-center gap-4 w-full h-full">
-      {!stream ? (
-        <div className="flex gap-4">
-          <button
-            onClick={() => startCamera("user")}
-            className="px-4 py-2 bg-blue-500 text-white rounded"
-          >
-            Cámara frontal
-          </button>
-          <button
-            onClick={() => startCamera("environment")}
-            className="px-4 py-2 bg-green-500 text-white rounded"
-          >
-            Cámara trasera
-          </button>
-        </div>
-      ) : (
-        <>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            className="w-full max-w-md rounded"
-          />
-          <canvas ref={canvasRef} width={300} height={300} className="hidden" />
-          <p className="text-white">
-            Escaneando cara: <strong>{currentFace}</strong>
-          </p>
-          <button
-            onClick={captureFace}
-            className="px-4 py-2 bg-green-500 text-white rounded"
-          >
-            Capturar cara
-          </button>
-          <button
-            onClick={stopCamera}
-            className="px-4 py-2 bg-red-500 text-white rounded"
-          >
-            Apagar cámara
-          </button>
-        </>
-      )}
+    <div className="relative flex flex-col items-center gap-2 text-white">
+      <Webcam
+        ref={webcamRef}
+        screenshotFormat="image/jpeg"
+        className="w-[400px] h-[300px] bg-black rounded-lg"
+        videoConstraints={{ width: 640, height: 480, facingMode: "user" }}
+      />
+      <div
+        className={`absolute top-1/2 left-1/2 w-[200px] h-[200px] -translate-x-1/2 -translate-y-1/2 border-4 rounded-md pointer-events-none transition-colors ${
+          isAligned ? "border-green-500" : "border-red-500"
+        }`}
+      />
+      <div className="text-sm mt-1">
+        Escaneando cara: <b>{current}</b>
+        {next ? <span className="ml-2 opacity-80">→ Siguiente: <b>{next}</b></span> : null}
+      </div>
+      <div className="text-xs opacity-80 -mt-1">{tips[current]}</div>
+      <button
+        onClick={capture}
+        className={`mt-1 px-4 py-2 rounded-md shadow transition ${isAligned ? "bg-green-600 hover:bg-green-700" : "bg-slate-500 hover:bg-slate-600"}`}
+      >
+        Capturar cara
+      </button>
     </div>
   );
 }

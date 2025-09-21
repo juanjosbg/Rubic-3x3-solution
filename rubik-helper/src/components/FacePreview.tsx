@@ -1,25 +1,34 @@
-import React from "react";
+// src/components/FacePreview.tsx
+import type { CubeColor } from "../utils/colorDetection";
 
-type FacePreviewProps = {
-  face: string;
-  colors: string[][];
+const PALETTE: Record<CubeColor, string> = {
+  white:  "#ffffff",
+  yellow: "#ffd500",
+  red:    "#c41e3a",
+  orange: "#ff6a00",
+  blue:   "#0051ba",
+  green:  "#009e60",
 };
 
-const FacePreview: React.FC<FacePreviewProps> = ({ face, colors }) => {
+interface FacePreviewProps {
+  name: string;
+  colors: (CubeColor | "")[][];
+}
+
+export default function FacePreview({ name, colors }: FacePreviewProps) {
   return (
     <div className="flex flex-col items-center">
-      <span className="mb-2 font-semibold text-gray-700">{face}</span>
-      <div className="grid grid-cols-3 grid-rows-3 gap-1">
-        {colors.flat().map((color, i) => (
+      <p className="font-semibold mb-1">{name}</p>
+      <div className="grid grid-cols-3 gap-1">
+        {colors.flat().map((c, i) => (
           <div
             key={i}
-            className="w-6 h-6 border border-gray-400 rounded-sm"
-            style={{ backgroundColor: color }}
+            className="w-8 h-8 border rounded-sm"
+            style={{ backgroundColor: c ? PALETTE[c] : "transparent" }}
+            title={c || "empty"}
           />
         ))}
       </div>
     </div>
   );
-};
-
-export default FacePreview;
+}
